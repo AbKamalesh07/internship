@@ -9,7 +9,8 @@ const notFound = require("./middleware/notFound");
 const errorHandler = require("./middleware/errorHandler");
 
 const healthRoutes = require("./routes/healthRoutes");
-// Day 3+: authRoutes, storeRoutes, productRoutes, orderRoutes, etc.
+const authRoutes = require("./routes/authRoutes");
+// Week 2+: storeRoutes, productRoutes, orderRoutes, etc.
 // will be required and mounted here as they're built.
 
 const app = express();
@@ -30,7 +31,7 @@ if (process.env.NODE_ENV !== "production") {
 
 // --- Routes ---
 app.use("/api/v1/health", healthRoutes);
-// app.use("/api/v1/auth", authRoutes);       // Day 3
+app.use("/api/v1/auth", authRoutes);
 // app.use("/api/v1/stores", storeRoutes);    // Week 2
 // app.use("/api/v1/products", productRoutes);// Week 2
 

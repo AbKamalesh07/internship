@@ -21,6 +21,34 @@ Every store-owned document (`Product`, `Order`) carries a `store` field. A `tena
 - `backend/.env.example` — all required environment variables documented
 - `frontend/` — Vite + React scaffold, Tailwind configured, Redux Toolkit store wired, axios instance set up, App.jsx calls the backend health check to prove the full stack is connected
 
+## Day 3 deliverables (this commit)
+
+- `backend/utils/jwt.js` — sign/verify helpers for short-lived access tokens and long-lived refresh tokens
+- `backend/middleware/protect.js` — verifies the access token on protected routes and attaches `req.user`; first link in the RBAC chain (`protect -> authorize -> tenantScope`, the rest lands Day 4)
+- `backend/controllers/authController.js` — register, login, refresh, logout, `me`
+- `backend/routes/authRoutes.js` — mounted at `/api/v1/auth`
+
+### Testing Day 3 with curl / Postman
+
+```bash
+# Register
+POST http://localhost:5000/api/v1/auth/register
+{ "name": "Jane Vendor", "email": "jane@example.com", "password": "password123", "role": "vendor" }
+
+# Login
+POST http://localhost:5000/api/v1/auth/login
+{ "email": "jane@example.com", "password": "password123" }
+# -> returns { accessToken, refreshToken, user }
+
+# Get current user (protected)
+GET http://localhost:5000/api/v1/auth/me
+Header: Authorization: Bearer <accessToken>
+
+# Refresh
+POST http://localhost:5000/api/v1/auth/refresh
+{ "refreshToken": "<refreshToken>" }
+```
+
 ## Running it locally
 
 **Backend**
