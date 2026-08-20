@@ -49,6 +49,36 @@ POST http://localhost:5000/api/v1/auth/refresh
 { "refreshToken": "<refreshToken>" }
 ```
 
+## Day 4 deliverables (this commit)
+
+- `backend/middleware/authorize.js` — role-based access control; second link in the chain
+- `backend/middleware/tenantScope.js` — auto-injects `req.tenantStoreId` from the authenticated vendor's own record; this is what stops one vendor from ever seeing another vendor's data
+- `backend/controllers/rbacTestController.js` + `backend/routes/rbacTestRoutes.js` — throwaway test endpoints proving the full chain works, before Week 2's real Product/Order controllers reuse the same pattern
+- `docs/postman_collection_day4.json` — importable Postman collection that tests all three roles
+
+### The full RBAC chain
+
+```
+protect          // verifies JWT, attaches req.user           (Day 3)
+  -> authorize(...roles)  // 403 if req.user.role not allowed  (Day 4)
+    -> tenantScope         // vendor: sets req.tenantStoreId    (Day 4)
+                            // super_admin: bypassed, platform-wide access
+```
+
+Controllers for store-owned resources (Product, Order — built Week 2) must always read the scoping value from `req.tenantStoreId`, never from `req.params`/`req.body`, for vendor-role requests.
+
+### Testing Day 4 with Postman
+
+1. Import `docs/postman_collection_day4.json` into Postman.
+2. Run requests 1–2 to register a customer and a vendor.
+3. Run requests 3–4 to log in as each, then copy the `accessToken` from each response into the matching collection variable (`customerToken` / `vendorToken`) via the collection's Variables tab.
+4. Run requests 5–9 in order and confirm the status codes match what's noted in each request name (200/403/401).
+
+To test the `super_admin` role, seed one directly in MongoDB (the public `/auth/register` endpoint intentionally only allows `customer`/`vendor`):
+```js
+db.users.updateOne({ email: "vendor@test.com" }, { $set: { role: "super_admin" } })
+```
+
 ## Running it locally
 
 **Backend**

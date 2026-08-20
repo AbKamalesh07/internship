@@ -1,0 +1,102 @@
+{
+  "info": {
+    "name": "MERN Ecommerce - Day 4 RBAC Tests",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000/api/v1" },
+    { "key": "customerToken", "value": "" },
+    { "key": "vendorToken", "value": "" },
+    { "key": "adminToken", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "1. Register Customer",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/auth/register",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Casey Customer\",\n  \"email\": \"customer@test.com\",\n  \"password\": \"password123\",\n  \"role\": \"customer\"\n}"
+        }
+      }
+    },
+    {
+      "name": "2. Register Vendor",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/auth/register",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Vera Vendor\",\n  \"email\": \"vendor@test.com\",\n  \"password\": \"password123\",\n  \"role\": \"vendor\"\n}"
+        }
+      }
+    },
+    {
+      "name": "3. Login Customer (copy accessToken into customerToken variable)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/auth/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"customer@test.com\",\n  \"password\": \"password123\"\n}"
+        }
+      }
+    },
+    {
+      "name": "4. Login Vendor (copy accessToken into vendorToken variable)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/auth/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"vendor@test.com\",\n  \"password\": \"password123\"\n}"
+        }
+      }
+    },
+    {
+      "name": "5. [Vendor] GET vendor-only -> expect 200",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{vendorToken}}" }],
+        "url": "{{baseUrl}}/rbac-test/vendor-only"
+      }
+    },
+    {
+      "name": "6. [Customer] GET vendor-only -> expect 403",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{customerToken}}" }],
+        "url": "{{baseUrl}}/rbac-test/vendor-only"
+      }
+    },
+    {
+      "name": "7. [Vendor] GET admin-only -> expect 403",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{vendorToken}}" }],
+        "url": "{{baseUrl}}/rbac-test/admin-only"
+      }
+    },
+    {
+      "name": "8. [No token] GET any-logged-in -> expect 401",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/rbac-test/any-logged-in"
+      }
+    },
+    {
+      "name": "9. [Customer] GET any-logged-in -> expect 200",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{customerToken}}" }],
+        "url": "{{baseUrl}}/rbac-test/any-logged-in"
+      }
+    }
+  ]
+}

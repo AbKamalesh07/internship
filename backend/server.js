@@ -10,6 +10,7 @@ const errorHandler = require("./middleware/errorHandler");
 
 const healthRoutes = require("./routes/healthRoutes");
 const authRoutes = require("./routes/authRoutes");
+const rbacTestRoutes = require("./routes/rbacTestRoutes");
 // Week 2+: storeRoutes, productRoutes, orderRoutes, etc.
 // will be required and mounted here as they're built.
 
@@ -32,6 +33,7 @@ if (process.env.NODE_ENV !== "production") {
 // --- Routes ---
 app.use("/api/v1/health", healthRoutes);
 app.use("/api/v1/auth", authRoutes);
+app.use("/api/v1/rbac-test", rbacTestRoutes);
 // app.use("/api/v1/stores", storeRoutes);    // Week 2
 // app.use("/api/v1/products", productRoutes);// Week 2
 
