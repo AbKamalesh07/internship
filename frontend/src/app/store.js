@@ -1,9 +1,10 @@
 import { configureStore } from "@reduxjs/toolkit";
+import authReducer from "../features/auth/authSlice";
 
-// Day 5+: authReducer, cartReducer will be added here as they're built.
+// Day 5: cartReducer will be added here in Week 3.
 export const store = configureStore({
   reducer: {
-    // auth: authReducer,
+    auth: authReducer,
     // cart: cartReducer,
   },
 });

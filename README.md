@@ -79,6 +79,23 @@ To test the `super_admin` role, seed one directly in MongoDB (the public `/auth/
 db.users.updateOne({ email: "vendor@test.com" }, { $set: { role: "super_admin" } })
 ```
 
+## Day 5 deliverables (this commit)
+
+- `frontend/src/features/auth/authSlice.js` — Redux Toolkit slice: stores `user`, `accessToken`, `refreshToken`; async thunks for `registerUser`/`loginUser`/`logoutUser`; persists to `localStorage` so a page refresh doesn't log the user out
+- `frontend/src/api/axios.js` — request interceptor attaches the access token to every call; response interceptor auto-refreshes on a `401` and retries the original request once, forcing logout only if the refresh itself fails
+- `frontend/src/pages/auth/LoginPage.jsx`, `RegisterPage.jsx` — forms wired to the auth slice
+- `frontend/src/routes/ProtectedRoute.jsx` — redirects to `/login` if not authenticated; optionally gates by `allowedRoles`
+- `frontend/src/pages/DashboardPage.jsx`, `UnauthorizedPage.jsx` — placeholder landing pages (real per-role dashboards land Week 2+)
+- `frontend/src/App.jsx` — full route table using React Router
+
+### Testing Day 5
+
+```bash
+cd backend && npm run dev      # terminal 1
+cd frontend && npm run dev     # terminal 2
+```
+Visit `http://localhost:5173` → redirects to `/login` → register a new account → redirects to `/dashboard` on success → refresh the page and confirm you're still logged in (localStorage persistence) → click "Log out."
+
 ## Running it locally
 
 **Backend**
