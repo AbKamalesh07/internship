@@ -96,6 +96,41 @@ cd frontend && npm run dev     # terminal 2
 ```
 Visit `http://localhost:5173` → redirects to `/login` → register a new account → redirects to `/dashboard` on success → refresh the page and confirm you're still logged in (localStorage persistence) → click "Log out."
 
+## Day 6 deliverables (this commit)
+
+- `backend/controllers/storeController.js` — `createStore`, `getStoreById`, `updateStore` (vendor, own store only), `listAllStores`, `approveStore` (super_admin only)
+- `backend/routes/storeRoutes.js` — mounted at `/api/v1/stores`, using the full RBAC chain (`protect -> authorize -> tenantScope`) on vendor routes
+- `backend/server.js` — wired in
+
+### Store routes
+
+| Method | Route | Auth | Notes |
+|---|---|---|---|
+| POST | `/api/v1/stores` | vendor | Creates the vendor's one store, links it to their user record |
+| GET | `/api/v1/stores/:storeId` | public | View any storefront |
+| PATCH | `/api/v1/stores/:storeId` | vendor (owner only) | `tenantScope` + an explicit param check stop a vendor editing another store |
+| GET | `/api/v1/stores` | super_admin | Platform-wide list, e.g. approval queue |
+| PATCH | `/api/v1/stores/:storeId/approve` | super_admin | Toggle `isApproved`/`isActive` |
+
+### Testing Day 6
+
+```bash
+# 1. Register + login a vendor (from Day 3), grab the accessToken
+# 2. Create a store
+POST http://localhost:5000/api/v1/stores
+Header: Authorization: Bearer <vendorAccessToken>
+{ "name": "Vera's Vintage Finds", "description": "Curated vintage goods", "contactEmail": "vera@example.com" }
+
+# 3. Try creating a second store as the same vendor -> expect 409
+# 4. View it publicly (no token needed)
+GET http://localhost:5000/api/v1/stores/<storeId>
+
+# 5. Update it as the owner -> expect 200
+PATCH http://localhost:5000/api/v1/stores/<storeId>
+Header: Authorization: Bearer <vendorAccessToken>
+{ "description": "Updated description" }
+```
+
 ## Running it locally
 
 **Backend**
