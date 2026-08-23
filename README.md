@@ -131,6 +131,57 @@ Header: Authorization: Bearer <vendorAccessToken>
 { "description": "Updated description" }
 ```
 
+## Day 7 deliverables (this commit)
+
+- `backend/validators/productValidators.js` — Zod schemas for create (strict, all required fields) and update (all fields optional, still validated) — coerces string numbers from form data into real numbers
+- `backend/middleware/validate.js` — generic Zod-validation middleware, reusable for any resource's schema
+- `backend/controllers/productController.js` — `createProduct`, `listPublicProducts` (published only, filter/search/pagination), `getPublicProductById`, `listMyProducts` (vendor, incl. drafts), `updateProduct`, `deleteProduct`
+- `backend/routes/productRoutes.js` — mounted at `/api/v1/products`
+- `backend/models/Product.js` — added a flat `stock` field for products without variants (kept in sync with `totalStock` via the existing pre-save hook)
+
+### Tenant isolation on Product routes
+
+Every vendor mutation filters by **both** `_id` and `store: req.tenantStoreId` in the same query — e.g. `Product.findOneAndUpdate({ _id: req.params.id, store: req.tenantStoreId }, ...)`. If a vendor tries to edit a product that belongs to a different store, the query simply matches nothing and returns a 404 — not a 403 — so vendors can't even probe whether an ID exists in another store.
+
+### Product routes
+
+| Method | Route | Auth | Notes |
+|---|---|---|---|
+| GET | `/api/v1/products` | public | Published only, supports `?category=&search=&store=&page=&limit=` |
+| GET | `/api/v1/products/:id` | public | Published only |
+| GET | `/api/v1/products/vendor/mine` | vendor | Own products incl. unpublished drafts |
+| POST | `/api/v1/products` | vendor | Zod-validated, auto-scoped to `req.tenantStoreId` |
+| PATCH | `/api/v1/products/:id` | vendor (owner only) | Zod-validated (partial) |
+| DELETE | `/api/v1/products/:id` | vendor (owner only) | — |
+
+### Testing Day 7
+
+```bash
+# Create a product (as a logged-in vendor with a store already created)
+POST http://localhost:5000/api/v1/products
+Header: Authorization: Bearer <vendorAccessToken>
+{
+  "name": "Vintage Denim Jacket",
+  "category": "<a real Category _id>",
+  "basePrice": 45.00,
+  "stock": 12,
+  "isPublished": true
+}
+
+# Missing required field -> expect 400 with a Zod validation message
+POST http://localhost:5000/api/v1/products
+Header: Authorization: Bearer <vendorAccessToken>
+{ "basePrice": 10 }
+
+# Browse the public catalog
+GET http://localhost:5000/api/v1/products?search=denim
+```
+
+Note: `category` requires a real `Category` document `_id`. Since category management routes aren't built yet, insert one directly for testing:
+```js
+db.categories.insertOne({ name: "Apparel", slug: "apparel" })
+```
+
 ## Running it locally
 
 **Backend**

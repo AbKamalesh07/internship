@@ -49,9 +49,16 @@ const productSchema = new mongoose.Schema(
     },
     images: [{ type: String }], // Cloudinary URLs
     variants: [variantSchema], // empty array = single-variant product
+    // Used only when variants is empty — a simple product's own stock count.
+    // When variants exist, totalStock is derived from them instead (see hook below).
+    stock: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
     totalStock: {
       type: Number,
-      default: 0, // maintained via pre-save hook summing variant stock
+      default: 0, // maintained via pre-save hook summing variant stock, or copied from `stock`
     },
     isPublished: {
       type: Boolean,
@@ -61,11 +68,13 @@ const productSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Keep totalStock in sync with variant stock so listing/search queries
-// don't need to re-aggregate on every read.
+// Keep totalStock in sync with either the variants or the flat `stock`
+// field, so listing/search queries don't need to re-aggregate on every read.
 productSchema.pre("save", function (next) {
   if (this.variants && this.variants.length > 0) {
     this.totalStock = this.variants.reduce((sum, v) => sum + v.stock, 0);
+  } else {
+    this.totalStock = this.stock;
   }
   next();
 });
