@@ -182,6 +182,34 @@ Note: `category` requires a real `Category` document `_id`. Since category manag
 db.categories.insertOne({ name: "Apparel", slug: "apparel" })
 ```
 
+## Day 8 deliverables (this commit)
+
+- `backend/config/cloudinary.js` — Cloudinary SDK configuration from env vars
+- `backend/middleware/upload.js` — Multer, memory storage (no disk writes — files stream straight to Cloudinary, which matters on hosts with ephemeral filesystems like Render), 5MB/file limit, image-mimetype filter
+- `backend/utils/cloudinaryUpload.js` — promise wrapper around Cloudinary's `upload_stream`, uploads multiple files in parallel
+- `backend/middleware/parseMultipartJSON.js` — parses the `variants` JSON string back into an array (multipart form-data can only carry strings/files, never nested JSON)
+- `backend/controllers/productController.js` — `createProduct`/`updateProduct` now accept uploaded files, attach product-level image URLs, and match `variantImages` files to `variants` array entries by index
+- `backend/routes/productRoutes.js` — create/update routes now run `upload.fields([...]) -> parseMultipartJSON -> validate` before hitting the controller
+- `backend/middleware/errorHandler.js` — added clean messages for Multer errors (file too large, too many files, wrong field name)
+- `backend/.env.example` — Cloudinary vars were already present from Day 1; fill them in now
+
+### How multi-image upload works
+
+The client sends `multipart/form-data` with:
+- `images` — up to 6 files, the product's own gallery
+- `variantImages` — up to 8 files, **one per variant that needs a new image, in the same order as the `variants` field**
+- `variants` — a **JSON string** (not JSON body) of the variant array, e.g. `[{"label":"Size: M","sku":"SHIRT-M","price":25,"stock":10}]` — omit `imageUrl` on any variant that should get its image from the matching file in `variantImages`
+
+### Testing Day 8 (Postman)
+
+1. Set the request to `POST http://localhost:5000/api/v1/products`, Body → `form-data` (not raw JSON).
+2. Add text fields: `name`, `category`, `basePrice`, `stock` (or `variants` as a JSON string), `isPublished`.
+3. Add file fields: key `images`, type File, pick 1–6 images. Optionally key `variantImages`, type File, pick images matching your variants order.
+4. Send with `Authorization: Bearer <vendorAccessToken>`.
+5. Response should show `product.images` and each `product.variants[i].imageUrl` populated with real Cloudinary URLs.
+
+Requires real Cloudinary credentials in `.env` (`CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`) — get a free account at cloudinary.com if you don't have one yet.
+
 ## Running it locally
 
 **Backend**

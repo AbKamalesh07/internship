@@ -3,6 +3,13 @@ const { z } = require("zod");
 const objectIdRegex = /^[0-9a-fA-F]{24}$/;
 const objectId = z.string().regex(objectIdRegex, "Must be a valid MongoDB ObjectId");
 
+// multipart/form-data sends every non-file field as a string, so a
+// checkbox-style boolean arrives as the literal text "true"/"false"
+// rather than a real boolean. This coerces either form into a boolean.
+const booleanish = z
+  .union([z.boolean(), z.enum(["true", "false"])])
+  .transform((val) => val === true || val === "true");
+
 const variantSchema = z.object({
   label: z.string().trim().min(1, "Variant label is required"),
   sku: z.string().trim().min(1, "Variant SKU is required"),
@@ -22,7 +29,7 @@ const createProductSchema = z
     variants: z.array(variantSchema).optional().default([]),
     // Only meaningful when variants is empty — validated further below.
     stock: z.coerce.number().int().min(0).optional().default(0),
-    isPublished: z.boolean().optional().default(false),
+    isPublished: booleanish.optional().default(false),
   })
   .refine(
     (data) => data.variants.length > 0 || data.stock !== undefined,
@@ -39,7 +46,7 @@ const updateProductSchema = z.object({
   images: z.array(z.string().url()).optional(),
   variants: z.array(variantSchema).optional(),
   stock: z.coerce.number().int().min(0).optional(),
-  isPublished: z.boolean().optional(),
+  isPublished: booleanish.optional(),
 });
 
 module.exports = { createProductSchema, updateProductSchema };

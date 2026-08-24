@@ -1,4 +1,5 @@
 const Product = require("../models/Product");
+const { uploadImages } = require("../utils/cloudinaryUpload");
 
 const slugify = (name) =>
   name
@@ -6,6 +7,39 @@ const slugify = (name) =>
     .trim()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
+
+// Pulls uploaded files off req.files (populated by
+// upload.fields([{ name: "images" }, { name: "variantImages" }])) and
+// streams them to Cloudinary. Returns { imageUrls, variantImageUrls }.
+// Either array is empty if that field wasn't part of the request.
+const handleUploadedImages = async (req) => {
+  const productImageFiles = req.files?.images || [];
+  const variantImageFiles = req.files?.variantImages || [];
+
+  const folder = `stores/${req.tenantStoreId}/products`;
+
+  const [imageUrls, variantImageUrls] = await Promise.all([
+    productImageFiles.length ? uploadImages(productImageFiles, folder) : [],
+    variantImageFiles.length ? uploadImages(variantImageFiles, folder) : [],
+  ]);
+
+  return { imageUrls, variantImageUrls };
+};
+
+// Merges newly-uploaded variant image URLs into req.body.variants by
+// index — the client is expected to send variantImages files in the
+// same order as the variants array, one file per variant that needs a
+// new image. A variant that already has an imageUrl in the JSON (e.g.
+// unchanged on update) is left as-is.
+const attachVariantImageUrls = (variants = [], variantImageUrls = []) => {
+  let cursor = 0;
+  return variants.map((variant) => {
+    if (!variant.imageUrl && cursor < variantImageUrls.length) {
+      return { ...variant, imageUrl: variantImageUrls[cursor++] };
+    }
+    return variant;
+  });
+};
 
 // POST /api/v1/products
 // vendor only. req.body has already been validated + coerced by Zod
@@ -17,8 +51,12 @@ const createProduct = async (req, res, next) => {
     const baseSlug = slugify(name);
     const slug = `${baseSlug}-${Math.random().toString(36).slice(2, 7)}`;
 
+    const { imageUrls, variantImageUrls } = await handleUploadedImages(req);
+
     const product = await Product.create({
       ...req.body,
+      images: [...(req.body.images || []), ...imageUrls],
+      variants: attachVariantImageUrls(req.body.variants, variantImageUrls),
       store: req.tenantStoreId,
       slug,
     });
@@ -109,9 +147,19 @@ const listMyProducts = async (req, res, next) => {
 // store, findOneAndUpdate simply matches nothing and returns null.
 const updateProduct = async (req, res, next) => {
   try {
+    const { imageUrls, variantImageUrls } = await handleUploadedImages(req);
+
+    const updates = { ...req.body };
+    if (imageUrls.length) {
+      updates.images = [...(req.body.images || []), ...imageUrls];
+    }
+    if (req.body.variants) {
+      updates.variants = attachVariantImageUrls(req.body.variants, variantImageUrls);
+    }
+
     const product = await Product.findOneAndUpdate(
       { _id: req.params.id, store: req.tenantStoreId },
-      req.body,
+      updates,
       { new: true, runValidators: true }
     );
 
