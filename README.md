@@ -210,6 +210,35 @@ The client sends `multipart/form-data` with:
 
 Requires real Cloudinary credentials in `.env` (`CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`) — get a free account at cloudinary.com if you don't have one yet.
 
+## Day 9 deliverables (this commit)
+
+- `frontend/src/features/products/productsSlice.js` — Redux slice: `fetchMyProducts`, `createProduct`, `updateProduct`, `deleteProduct` thunks, all calling the Day 7/8 backend endpoints
+- `frontend/src/pages/vendor/VendorDashboardLayout.jsx` — sidebar layout (Products / Add Product nav, logout) wrapping vendor pages via a nested `<Outlet />`
+- `frontend/src/pages/vendor/ProductListPage.jsx` — table of the vendor's own products (image, name, price, stock, variant count, published/draft badge, edit/delete actions)
+- `frontend/src/pages/vendor/AddProductPage.jsx` — full create form: name/description/category/price, a variants toggle (flat stock vs. variant rows), multi-file product image picker, per-variant image picker
+- `frontend/src/components/vendor/VariantRow.jsx` — reusable variant input row (label, SKU, price, stock, image)
+- `frontend/src/App.jsx` — added a vendor-only route group (`/vendor/products`, `/vendor/products/new`) gated by `ProtectedRoute allowedRoles={["vendor"]}`
+- `frontend/src/pages/DashboardPage.jsx` — vendors now see a link into their dashboard
+
+### How the form matches the Day 8 backend contract
+
+The create form builds a `FormData` payload exactly as the backend expects: text fields (`name`, `category`, `basePrice`, `stock`, `isPublished`) plus `images` files and, when using variants, a `variants` field that's a **JSON string** (`JSON.stringify(...)`, not a nested object) alongside `variantImages` files in the same order as the variants array.
+
+**Current limitation:** if you're using variant images, add one for every variant or none — the backend matches `variantImages` files to variants by position among those missing an `imageUrl`, so a partial mix will misassign images. Worth fixing when Part 2 (Day 10) adds per-variant image editing.
+
+**Category ID:** category management UI isn't built yet, so the form asks for a raw Category `_id`. Insert one for testing:
+```js
+db.categories.insertOne({ name: "Apparel", slug: "apparel" })
+```
+
+### Testing Day 9
+
+```bash
+cd backend && npm run dev      # terminal 1 (+ mongod running separately)
+cd frontend && npm run dev     # terminal 2
+```
+Log in as a vendor with a store already created (Day 6) → you'll see a "Go to your vendor dashboard" link → `/vendor/products` shows an empty state → "Add Product" → fill the form, add a couple of images → save → confirm it appears in the table with the right price/stock/status.
+
 ## Running it locally
 
 **Backend**

@@ -4,6 +4,9 @@ import RegisterPage from "./pages/auth/RegisterPage";
 import DashboardPage from "./pages/DashboardPage";
 import UnauthorizedPage from "./pages/UnauthorizedPage";
 import ProtectedRoute from "./routes/ProtectedRoute";
+import VendorDashboardLayout from "./pages/vendor/VendorDashboardLayout";
+import ProductListPage from "./pages/vendor/ProductListPage";
+import AddProductPage from "./pages/vendor/AddProductPage";
 
 function App() {
   return (
@@ -18,11 +21,14 @@ function App() {
         <Route path="/dashboard" element={<DashboardPage />} />
       </Route>
 
-      {/* Example of a role-gated route group for later use, e.g.:
+      {/* Vendor-only dashboard */}
       <Route element={<ProtectedRoute allowedRoles={["vendor"]} />}>
-        <Route path="/vendor/products" element={<VendorProductsPage />} />
+        <Route path="/vendor" element={<VendorDashboardLayout />}>
+          <Route path="products" element={<ProductListPage />} />
+          <Route path="products/new" element={<AddProductPage />} />
+          {/* products/:id/edit lands with the edit flow in Part 2 (Day 10) */}
+        </Route>
       </Route>
-      */}
 
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
