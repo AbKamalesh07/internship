@@ -7,6 +7,7 @@ import ProtectedRoute from "./routes/ProtectedRoute";
 import VendorDashboardLayout from "./pages/vendor/VendorDashboardLayout";
 import ProductListPage from "./pages/vendor/ProductListPage";
 import AddProductPage from "./pages/vendor/AddProductPage";
+import EditProductPage from "./pages/vendor/EditProductPage";
 
 function App() {
   return (
@@ -26,7 +27,7 @@ function App() {
         <Route path="/vendor" element={<VendorDashboardLayout />}>
           <Route path="products" element={<ProductListPage />} />
           <Route path="products/new" element={<AddProductPage />} />
-          {/* products/:id/edit lands with the edit flow in Part 2 (Day 10) */}
+          <Route path="products/:id/edit" element={<EditProductPage />} />
         </Route>
       </Route>
 

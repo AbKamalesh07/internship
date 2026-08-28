@@ -2,10 +2,11 @@ import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
 import { fetchMyProducts, deleteProduct } from "../../features/products/productsSlice";
+import StockQuickEdit from "../../components/vendor/StockQuickEdit";
 
 function ProductListPage() {
   const dispatch = useDispatch();
-  const { items, status, error } = useSelector((state) => state.products);
+  const { items, status, error, deletingId } = useSelector((state) => state.products);
 
   useEffect(() => {
     dispatch(fetchMyProducts());
@@ -29,7 +30,9 @@ function ProductListPage() {
         </Link>
       </div>
 
-      {status === "loading" && <p className="text-gray-500">Loading products...</p>}
+      {status === "loading" && items.length === 0 && (
+        <p className="text-gray-500">Loading products...</p>
+      )}
       {status === "failed" && <p className="text-red-600">{error}</p>}
 
       {status === "succeeded" && items.length === 0 && (
@@ -71,7 +74,9 @@ function ProductListPage() {
                   </td>
                   <td className="px-4 py-3 font-medium text-gray-800">{product.name}</td>
                   <td className="px-4 py-3 text-gray-600">${product.basePrice?.toFixed(2)}</td>
-                  <td className="px-4 py-3 text-gray-600">{product.totalStock}</td>
+                  <td className="px-4 py-3">
+                    <StockQuickEdit product={product} />
+                  </td>
                   <td className="px-4 py-3 text-gray-600">
                     {product.variants?.length || 0}
                   </td>
@@ -95,9 +100,10 @@ function ProductListPage() {
                     </Link>
                     <button
                       onClick={() => handleDelete(product._id, product.name)}
-                      className="text-red-600 hover:underline text-sm"
+                      disabled={deletingId === product._id}
+                      className="text-red-600 hover:underline text-sm disabled:opacity-50"
                     >
-                      Delete
+                      {deletingId === product._id ? "Deleting..." : "Delete"}
                     </button>
                   </td>
                 </tr>

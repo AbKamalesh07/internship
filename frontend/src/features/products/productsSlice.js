@@ -7,6 +7,9 @@ const initialState = {
   error: null,
   createStatus: "idle",
   createError: null,
+  updateStatus: "idle",
+  updateError: null,
+  deletingId: null, // tracks which row is mid-delete, for per-row spinners
 };
 
 // GET /products/vendor/mine — the vendor's own products, incl. drafts.
@@ -70,6 +73,9 @@ const productsSlice = createSlice({
     clearCreateError: (state) => {
       state.createError = null;
     },
+    clearUpdateError: (state) => {
+      state.updateError = null;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -100,16 +106,32 @@ const productsSlice = createSlice({
         state.createError = action.payload;
       })
       // Update
+      .addCase(updateProduct.pending, (state) => {
+        state.updateStatus = "loading";
+        state.updateError = null;
+      })
       .addCase(updateProduct.fulfilled, (state, action) => {
+        state.updateStatus = "succeeded";
         const idx = state.items.findIndex((p) => p._id === action.payload._id);
         if (idx !== -1) state.items[idx] = action.payload;
       })
+      .addCase(updateProduct.rejected, (state, action) => {
+        state.updateStatus = "failed";
+        state.updateError = action.payload;
+      })
       // Delete
+      .addCase(deleteProduct.pending, (state, action) => {
+        state.deletingId = action.meta.arg;
+      })
       .addCase(deleteProduct.fulfilled, (state, action) => {
         state.items = state.items.filter((p) => p._id !== action.payload);
+        state.deletingId = null;
+      })
+      .addCase(deleteProduct.rejected, (state) => {
+        state.deletingId = null;
       });
   },
 });
 
-export const { clearCreateError } = productsSlice.actions;
+export const { clearCreateError, clearUpdateError } = productsSlice.actions;
 export default productsSlice.reducer;

@@ -239,6 +239,25 @@ cd frontend && npm run dev     # terminal 2
 ```
 Log in as a vendor with a store already created (Day 6) → you'll see a "Go to your vendor dashboard" link → `/vendor/products` shows an empty state → "Add Product" → fill the form, add a couple of images → save → confirm it appears in the table with the right price/stock/status.
 
+## Day 10 deliverables (this commit)
+
+- `frontend/src/components/vendor/ProductForm.jsx` — shared form used by both create and edit, so the two flows can never drift apart. In edit mode it pre-fills every field, shows existing images as removable thumbnails, and shows each variant's existing image with a picker to replace it
+- `frontend/src/pages/vendor/EditProductPage.jsx` — loads the product from Redux state (fetching the list first if the vendor lands here directly, e.g. on refresh), then renders `ProductForm` in edit mode
+- `frontend/src/pages/vendor/AddProductPage.jsx` — simplified to just wire `ProductForm` (mode="create") to the `createProduct` thunk
+- `frontend/src/components/vendor/StockQuickEdit.jsx` — inline stock editor in the product table for non-variant products (variant-based stock is edited through the full form, since it's derived from the variants array)
+- `frontend/src/features/products/productsSlice.js` — added `updateStatus`/`updateError` (separate from create's, so both forms track their own loading/error state) and `deletingId` (per-row delete spinner)
+- `frontend/src/pages/vendor/ProductListPage.jsx` — wired to `StockQuickEdit` and per-row delete loading state
+- `frontend/src/App.jsx` — added `/vendor/products/:id/edit`
+- `docs/day10_integration_test.md` — full manual end-to-end checklist covering the entire vendor inventory workflow, Days 1–10
+
+### How edit preserves existing images
+
+The backend (Day 8) merges `req.body.images` (existing URLs, sent as a JSON text field) with any newly uploaded files under the same `images` field name. `ProductForm` re-sends the images the vendor didn't remove as that JSON field, so editing without touching images doesn't wipe the gallery, and removing one is just a matter of the vendor clicking ✕ before saving. The same pattern applies to variant images: a variant keeps its existing `imageUrl` unless the vendor picks a replacement file, in which case `imageUrl` is cleared client-side so the backend's index-based matching assigns the new upload.
+
+### Testing Day 10
+
+Run through `docs/day10_integration_test.md` top to bottom — it's the authoritative end-to-end test for everything built so far.
+
 ## Running it locally
 
 **Backend**
