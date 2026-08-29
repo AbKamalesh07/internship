@@ -258,6 +258,64 @@ The backend (Day 8) merges `req.body.images` (existing URLs, sent as a JSON text
 
 Run through `docs/day10_integration_test.md` top to bottom — it's the authoritative end-to-end test for everything built so far.
 
+## Day 11 deliverables (this commit)
+
+- `frontend/src/features/cart/cartSlice.js` — Redux Toolkit cart slice: `addItem` (merges quantity if the same product+variant is already in the cart, capped at `maxStock`), `removeItem`, `updateQuantity`, `clearCart`, plus drawer open/close actions. Persists to `localStorage` on every change so the cart survives a page refresh, the same pattern as the Day 5 auth slice
+- `frontend/src/components/cart/CartDrawer.jsx` — slide-out cart panel: line items grouped by store, quantity +/− controls, remove, live per-store subtotals and a grand total
+- `frontend/src/components/cart/CartButton.jsx` — cart icon with an item-count badge, toggles the drawer
+- `frontend/src/components/layout/ShopLayout.jsx` — top navbar (brand, login/account link, cart button) wrapping public shop pages, with the drawer always mounted so it can slide out from any shop page
+- `frontend/src/pages/shop/ProductBrowsePage.jsx` — public product grid (hits the Day 7 `GET /products` endpoint), with a variant picker and "Add to Cart" per product
+- `frontend/src/App.jsx` — added the public `/shop` route; root `/` and the catch-all now land on `/shop` instead of forcing a login
+- `frontend/src/pages/DashboardPage.jsx` — customers now see a "Browse the shop" link
+
+### Why cart items are grouped by store
+
+The Order model (built Day 1, used starting Day 12) ties one order to one store — a cart spanning multiple vendors becomes multiple orders at checkout. `selectCartGroupedByStore` groups the cart the same way ahead of time, so the drawer's per-store subtotals are exactly what checkout will split into. The Checkout button is present but disabled until Day 12 wires up the actual order-creation flow.
+
+### Testing Day 11
+
+```bash
+cd backend && npm run dev      # terminal 1 (+ mongod running separately)
+cd frontend && npm run dev     # terminal 2
+```
+Visit `http://localhost:5173` → lands on `/shop` → published products (Day 9/10's vendor-created ones) appear as cards → "Add to Cart" → cart badge updates and the drawer opens automatically → adjust quantity with +/− → confirm the subtotal recalculates live → refresh the page → cart contents persist → add products from two different vendors' stores → confirm the drawer shows two separate store groups with their own subtotals.
+
+## Day 12 deliverables (this commit)
+
+- `backend/validators/checkoutValidators.js` — Zod schema for the checkout body: `items[]` (`productId`, optional `variantId`, `quantity`) and an optional `shippingAddress`. Deliberately does **not** accept price, name, or store from the client — those are always looked up server-side
+- `backend/controllers/checkoutController.js` — the checkout flow: resolves every cart line against the real `Product` document (rejects unpublished products), validates stock, atomically decrements it with a conditional `$inc` (the actual anti-oversell guard), rolls back already-decremented lines if a later line fails, then creates one `pending` `Order` per store
+- `backend/controllers/orderController.js` + `backend/routes/orderRoutes.js` — `GET /orders/mine` (customer's own order history) and `GET /orders/:id` (owner customer, owning vendor, or super_admin only)
+- `backend/routes/checkoutRoutes.js` — `POST /api/v1/checkout`, customer only
+- `backend/server.js` — wired in
+
+### Why stock decrement uses `$elemMatch`
+
+For variant stock, the update query uses `variants: { $elemMatch: { _id: variantId, stock: { $gte: quantity } } }` rather than two separate dot-path conditions. Without `$elemMatch`, Mongo can satisfy `"variants._id": X` against one array element and `"variants.stock": {$gte: Y}` against a *different* element — the conditions aren't implicitly tied to the same subdocument. `$elemMatch` forces both conditions onto the same variant.
+
+### A known limitation, stated plainly
+
+Standalone MongoDB (no replica set) doesn't give this project real multi-document transactions. Each individual stock decrement **is** atomic — two concurrent checkouts can never oversell the same item — but if a 3-item cart's 3rd item fails (e.g., it sold out mid-checkout), items 1 and 2 are rolled back with a manual compensating update rather than as part of one all-or-nothing commit. There's a narrow window where a crash between decrement and rollback could leave stock understated. Acceptable for this project's scale; a production system on a replica set would wrap this in a real transaction instead.
+
+### Testing Day 12
+
+```bash
+POST http://localhost:5000/api/v1/checkout
+Header: Authorization: Bearer <customerAccessToken>
+{
+  "items": [
+    { "productId": "<a published product's _id>", "quantity": 2 },
+    { "productId": "<a variant product's _id>", "variantId": "<variant's _id>", "quantity": 1 }
+  ],
+  "shippingAddress": { "line1": "123 Main St", "city": "Springfield", "country": "USA" }
+}
+```
+Expect `201` with one `Order` per distinct store among those products. Then:
+```bash
+GET http://localhost:5000/api/v1/orders/mine
+Header: Authorization: Bearer <customerAccessToken>
+```
+should list them. Try checking out more than the available stock of a product — expect a `409` with a message naming exactly which item was short.
+
 ## Running it locally
 
 **Backend**

@@ -13,7 +13,8 @@ const authRoutes = require("./routes/authRoutes");
 const rbacTestRoutes = require("./routes/rbacTestRoutes");
 const storeRoutes = require("./routes/storeRoutes");
 const productRoutes = require("./routes/productRoutes");
-// Week 3+: orderRoutes, etc. will be required and mounted here as they're built.
+const checkoutRoutes = require("./routes/checkoutRoutes");
+const orderRoutes = require("./routes/orderRoutes");
 
 const app = express();
 
@@ -37,6 +38,8 @@ app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/rbac-test", rbacTestRoutes);
 app.use("/api/v1/stores", storeRoutes);
 app.use("/api/v1/products", productRoutes);
+app.use("/api/v1/checkout", checkoutRoutes);
+app.use("/api/v1/orders", orderRoutes);
 
 // --- Error handling (must be last) ---
 app.use(notFound);
