@@ -32,6 +32,12 @@ function DashboardPage() {
           </Link>
         )}
 
+        {user?.role === "customer" && (
+          <Link to="/shop" className="inline-block mt-2 text-blue-600 hover:underline text-sm">
+            Browse the shop →
+          </Link>
+        )}
+
         <button
           onClick={handleLogout}
           className="mt-4 bg-gray-800 text-white rounded px-4 py-2 hover:bg-gray-900 block mx-auto"

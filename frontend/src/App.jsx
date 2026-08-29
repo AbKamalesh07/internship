@@ -8,14 +8,21 @@ import VendorDashboardLayout from "./pages/vendor/VendorDashboardLayout";
 import ProductListPage from "./pages/vendor/ProductListPage";
 import AddProductPage from "./pages/vendor/AddProductPage";
 import EditProductPage from "./pages/vendor/EditProductPage";
+import ShopLayout from "./components/layout/ShopLayout";
+import ProductBrowsePage from "./pages/shop/ProductBrowsePage";
 
 function App() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/login" replace />} />
+      <Route path="/" element={<Navigate to="/shop" replace />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/unauthorized" element={<UnauthorizedPage />} />
+
+      {/* Public storefront — browsing and the cart don't require login */}
+      <Route element={<ShopLayout />}>
+        <Route path="/shop" element={<ProductBrowsePage />} />
+      </Route>
 
       {/* Any authenticated role can reach these */}
       <Route element={<ProtectedRoute />}>
@@ -31,7 +38,7 @@ function App() {
         </Route>
       </Route>
 
-      <Route path="*" element={<Navigate to="/login" replace />} />
+      <Route path="*" element={<Navigate to="/shop" replace />} />
     </Routes>
   );
 }
