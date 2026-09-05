@@ -10,6 +10,7 @@ import AddProductPage from "./pages/vendor/AddProductPage";
 import EditProductPage from "./pages/vendor/EditProductPage";
 import ShopLayout from "./components/layout/ShopLayout";
 import ProductBrowsePage from "./pages/shop/ProductBrowsePage";
+import CheckoutPage from "./pages/shop/CheckoutPage";
 
 function App() {
   return (
@@ -22,6 +23,12 @@ function App() {
       {/* Public storefront — browsing and the cart don't require login */}
       <Route element={<ShopLayout />}>
         <Route path="/shop" element={<ProductBrowsePage />} />
+
+        {/* Checkout requires a customer account (the backend's /checkout
+            route is customer-only) but keeps the same navbar/cart drawer */}
+        <Route element={<ProtectedRoute allowedRoles={["customer"]} />}>
+          <Route path="/checkout" element={<CheckoutPage />} />
+        </Route>
       </Route>
 
       {/* Any authenticated role can reach these */}

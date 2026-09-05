@@ -1,5 +1,6 @@
 const Product = require("../models/Product");
 const Order = require("../models/Order");
+const stripe = require("../config/stripe");
 
 // Looks up the real product/variant for a cart line and returns the
 // authoritative name/price/stock — never trusts what the client sent.
@@ -106,8 +107,17 @@ const restoreStock = async (resolved) => {
 // back manually rather than as part of one all-or-nothing commit. Good
 // enough for this project's scale; a production system on a replica set
 // would wrap this in a real session/transaction instead.
+//
+// Payment model: this is a simple (non-Connect) marketplace — ONE
+// PaymentIntent is created for the customer's full cart total, covering
+// every store's order from this checkout in a single charge. The
+// platform collects the payment; splitting funds out to each vendor is
+// out of scope for this project (would require Stripe Connect). Every
+// order created here shares the same stripePaymentIntentId so the Day 14
+// webhook can mark them all "paid" together when the charge succeeds.
 const checkout = async (req, res, next) => {
   const decremented = []; // successfully decremented lines, for rollback on failure
+  const createdOrders = []; // for cleanup if Stripe fails after orders exist
 
   try {
     const { items, shippingAddress } = req.body;
@@ -154,7 +164,6 @@ const checkout = async (req, res, next) => {
       groups.get(key).push(line);
     }
 
-    const orders = [];
     for (const [storeId, lines] of groups) {
       const orderItems = lines.map((l) => ({
         product: l.product._id,
@@ -173,10 +182,48 @@ const checkout = async (req, res, next) => {
         shippingAddress,
         status: "pending",
       });
-      orders.push(order);
+      createdOrders.push(order);
     }
 
-    res.status(201).json({ success: true, count: orders.length, orders });
+    // Phase 4: create ONE Stripe PaymentIntent covering every order's
+    // subtotal from this checkout, then stamp its id onto each order.
+    const grandTotal = createdOrders.reduce((sum, o) => sum + o.subtotal, 0);
+    const amountInCents = Math.round(grandTotal * 100);
+
+    let paymentIntent;
+    try {
+      paymentIntent = await stripe.paymentIntents.create({
+        amount: amountInCents,
+        currency: "usd",
+        automatic_payment_methods: { enabled: true },
+        metadata: {
+          customerId: String(req.user._id),
+          orderIds: createdOrders.map((o) => String(o._id)).join(","),
+        },
+      });
+    } catch (stripeErr) {
+      // Stripe failed after we already committed stock + orders —
+      // unwind both so the customer isn't left with phantom pending
+      // orders and permanently reduced stock for a charge that never happened.
+      for (const done of decremented) await restoreStock(done);
+      await Order.deleteMany({ _id: { $in: createdOrders.map((o) => o._id) } });
+
+      const err = new Error(`Payment setup failed: ${stripeErr.message}`);
+      err.statusCode = 502;
+      throw err;
+    }
+
+    await Order.updateMany(
+      { _id: { $in: createdOrders.map((o) => o._id) } },
+      { $set: { "payment.stripePaymentIntentId": paymentIntent.id } }
+    );
+
+    res.status(201).json({
+      success: true,
+      count: createdOrders.length,
+      orders: createdOrders,
+      clientSecret: paymentIntent.client_secret,
+    });
   } catch (err) {
     next(err);
   }

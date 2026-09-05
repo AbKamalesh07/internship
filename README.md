@@ -316,6 +316,46 @@ Header: Authorization: Bearer <customerAccessToken>
 ```
 should list them. Try checking out more than the available stock of a product — expect a `409` with a message naming exactly which item was short.
 
+## Day 13 deliverables (this commit)
+
+- `backend/config/stripe.js` — Stripe SDK client, initialized from `STRIPE_SECRET_KEY`
+- `backend/controllers/checkoutController.js` — extended: after creating the pending order(s), creates **one** Stripe PaymentIntent covering the full cart total across every store, stamps its id onto each order, and returns `clientSecret` to the frontend. If Stripe itself fails, the already-decremented stock and already-created orders are rolled back — the customer never ends up with phantom pending orders for a charge that never happened
+- `frontend/src/stripe.js` — `loadStripe()` singleton
+- `frontend/src/components/checkout/StripePaymentForm.jsx` — wraps Stripe's `PaymentElement`, calls `stripe.confirmPayment()` with `redirect: "if_required"` so card payments resolve without leaving the page
+- `frontend/src/pages/shop/CheckoutPage.jsx` — shipping address form → calls `/checkout` → renders the Stripe Elements payment form once a `clientSecret` comes back → on success, clears the cart and shows a confirmation
+- `frontend/src/components/cart/CartDrawer.jsx` — the "Checkout" button now navigates to `/checkout` (or `/login` if not authenticated) instead of being disabled
+- `frontend/src/App.jsx` — added `/checkout`, gated to the `customer` role
+- `frontend/package.json` — added `@stripe/stripe-js` and `@stripe/react-stripe-js`
+- `frontend/.env.example` — added `VITE_STRIPE_PUBLISHABLE_KEY`
+
+### Payment model: one PaymentIntent per checkout, not per store
+
+This is a simple (non-Connect) marketplace: the platform's Stripe account collects the full charge, and every order from one checkout — even across multiple vendors' stores — shares a single `stripePaymentIntentId`. Splitting funds out to individual vendors would require Stripe Connect, which is out of scope here. This was flagged as a design decision back in the original Day 1 project review.
+
+### Stripe account setup
+
+1. Sign up free at https://dashboard.stripe.com/register.
+2. Make sure you're in **Test mode** (toggle in the dashboard sidebar).
+3. Go to **Developers → API keys** → copy the **Publishable key** (`pk_test_...`) and **Secret key** (`sk_test_...`).
+4. Put the secret key in `backend/.env` as `STRIPE_SECRET_KEY`.
+5. Put the publishable key in `frontend/.env` as `VITE_STRIPE_PUBLISHABLE_KEY`.
+
+### Testing Day 13 with Stripe test cards
+
+```bash
+cd backend && npm install && npm run dev     # picks up the stripe package (already in package.json since Day 1)
+cd frontend && npm install && npm run dev    # picks up @stripe/stripe-js, @stripe/react-stripe-js
+```
+
+1. Log in as a customer, add products to the cart, open the drawer → **Checkout**.
+2. Fill the shipping address → **Continue to Payment**.
+3. In the Stripe payment element, use a test card:
+   - `4242 4242 4242 4242` — succeeds
+   - `4000 0000 0000 9995` — always declines (to test the failure path)
+   - Any future expiry date, any 3-digit CVC, any postal code
+4. On success: cart clears, confirmation screen shows the order count. Orders remain `status: "pending"` until Day 14's webhook marks them `"paid"` — check via `GET /api/v1/orders/mine`.
+5. Confirm in the Stripe dashboard (**Payments**, test mode) that the PaymentIntent appears with the correct amount.
+
 ## Running it locally
 
 **Backend**

@@ -1,4 +1,5 @@
 import { useDispatch, useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import {
   closeCartDrawer,
   removeItem,
@@ -9,13 +10,20 @@ import {
 
 function CartDrawer() {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const isOpen = useSelector((state) => state.cart.isDrawerOpen);
   const storeGroups = useSelector(selectCartGroupedByStore);
   const subtotal = useSelector(selectCartSubtotal);
+  const { user } = useSelector((state) => state.auth);
 
   if (!isOpen) return null;
 
   const lineKey = (item) => `${item.productId}::${item.variantId || "base"}`;
+
+  const handleCheckout = () => {
+    dispatch(closeCartDrawer());
+    navigate(user ? "/checkout" : "/login");
+  };
 
   return (
     <>
@@ -139,15 +147,19 @@ function CartDrawer() {
             <p className="text-xs text-gray-400 mb-3">
               {storeGroups.length > 1
                 ? `Checkout will create ${storeGroups.length} separate orders, one per store.`
-                : "Checkout isn't built yet — landing in Week 3."}
+                : "Ready to check out."}
             </p>
             <button
-              disabled
-              className="w-full bg-gray-300 text-gray-500 rounded py-2 font-medium cursor-not-allowed"
-              title="Checkout lands Day 12+"
+              onClick={handleCheckout}
+              className="w-full bg-blue-600 text-white rounded py-2 font-medium hover:bg-blue-700"
             >
-              Checkout (coming soon)
+              Checkout
             </button>
+            {!user && (
+              <p className="text-xs text-gray-400 mt-2 text-center">
+                You'll need to log in as a customer to check out.
+              </p>
+            )}
           </div>
         )}
       </div>
