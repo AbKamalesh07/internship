@@ -1,6 +1,7 @@
 const Product = require("../models/Product");
 const Order = require("../models/Order");
 const stripe = require("../config/stripe");
+const { decrementStock, restoreStock } = require("../utils/stockAdjust");
 
 // Looks up the real product/variant for a cart line and returns the
 // authoritative name/price/stock — never trusts what the client sent.
@@ -56,46 +57,7 @@ const resolveCartLine = async (line) => {
 // actually prevents overselling under concurrent checkouts — the
 // earlier read-then-check in resolveCartLine is just a fast pre-check
 // for a friendly error message; this conditional update is the real guard.
-const decrementStock = async (resolved) => {
-  const { product, variantId, quantity } = resolved;
-
-  if (variantId) {
-    // $elemMatch is required here, not two separate dot-path conditions —
-    // without it, Mongo can match "_id equals X" against one array element
-    // and "stock >= quantity" against a different element, since dot-path
-    // conditions on an array field aren't implicitly tied to the same item.
-    const result = await Product.updateOne(
-      { _id: product._id, variants: { $elemMatch: { _id: variantId, stock: { $gte: quantity } } } },
-      { $inc: { "variants.$.stock": -quantity, totalStock: -quantity } }
-    );
-    return result.modifiedCount === 1;
-  }
-
-  const result = await Product.updateOne(
-    { _id: product._id, stock: { $gte: quantity } },
-    { $inc: { stock: -quantity, totalStock: -quantity } }
-  );
-  return result.modifiedCount === 1;
-};
-
-// Reverses a successful decrement — used when a later item in the same
-// checkout request fails, so earlier items don't leave stock permanently
-// short without an order to account for it.
-const restoreStock = async (resolved) => {
-  const { product, variantId, quantity } = resolved;
-
-  if (variantId) {
-    await Product.updateOne(
-      { _id: product._id, "variants._id": variantId },
-      { $inc: { "variants.$.stock": quantity, totalStock: quantity } }
-    );
-  } else {
-    await Product.updateOne(
-      { _id: product._id },
-      { $inc: { stock: quantity, totalStock: quantity } }
-    );
-  }
-};
+// (Moved to utils/stockAdjust.js in Day 14, shared with the payment webhook.)
 
 // POST /api/v1/checkout
 // customer only. Note on consistency: standalone MongoDB (no replica

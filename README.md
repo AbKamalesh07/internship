@@ -356,6 +356,38 @@ cd frontend && npm install && npm run dev    # picks up @stripe/stripe-js, @stri
 4. On success: cart clears, confirmation screen shows the order count. Orders remain `status: "pending"` until Day 14's webhook marks them `"paid"` — check via `GET /api/v1/orders/mine`.
 5. Confirm in the Stripe dashboard (**Payments**, test mode) that the PaymentIntent appears with the correct amount.
 
+## Day 14 deliverables (this commit)
+
+- `backend/controllers/webhookController.js` — verifies the Stripe signature (`stripe.webhooks.constructEvent`), then handles `payment_intent.succeeded` (marks every order sharing that PaymentIntent as `"paid"`, sets `payment.paidAt`) and `payment_intent.payment_failed` (restores the stock reserved at checkout time, marks those orders `"cancelled"`)
+- `backend/routes/webhookRoutes.js` — `POST /api/v1/webhooks/stripe`, no auth middleware (Stripe authenticates via the signature header instead)
+- `backend/utils/stockAdjust.js` — `decrementStock`/`restoreStock` extracted out of `checkoutController.js` so the webhook can reuse the exact same stock-restoration logic instead of duplicating it
+- `backend/server.js` — the webhook route is now mounted with `express.raw({ type: "application/json" })` **before** the global `express.json()` — this ordering is load-bearing, not stylistic (see below)
+
+### Why the webhook route needs raw body parsing, and why the order matters
+
+Stripe signs the *exact bytes* of the request body and expects `stripe.webhooks.constructEvent` to verify that signature against the same raw bytes. If `express.json()` parses the body first, Express replaces `req.body` with a JS object — the original byte-for-byte payload is gone, and signature verification fails for every single webhook, every time. So the webhook route registers its own `express.raw()` parser, and it's mounted **before** `app.use(express.json())` in `server.js` — Express middleware runs in registration order, so anything mounted after the global JSON parser would already have a parsed (and therefore useless, for this purpose) body.
+
+### Why a failed payment restores stock
+
+Checkout (Day 12) decrements stock immediately, before payment is confirmed — that's what "reserves" the item for this order while the customer pays. If the payment ultimately fails, that reservation was never fulfilled, so the webhook gives the stock back via the same `restoreStock` helper checkout itself uses for its own rollback cases.
+
+### Local testing via Stripe CLI
+
+1. Install the Stripe CLI: https://docs.stripe.com/stripe-cli (or `scoop install stripe` on Windows if you have Scoop).
+2. Log in: `stripe login` (opens a browser to link your Stripe account).
+3. Forward events to your local backend:
+   ```
+   stripe listen --forward-to localhost:5000/api/v1/webhooks/stripe
+   ```
+4. This prints a webhook signing secret like `whsec_...` — copy it into `backend/.env` as `STRIPE_WEBHOOK_SECRET`, then restart the backend so it picks up the new value.
+5. In a separate terminal, trigger a test event:
+   ```
+   stripe trigger payment_intent.succeeded
+   ```
+6. Watch both terminals: the `stripe listen` terminal shows the event being forwarded and the response status your server returned; your backend terminal logs the request.
+7. For the full real flow instead of a synthetic trigger: run an actual Day 13 checkout with test card `4242 4242 4242 4242` while `stripe listen` is running — the webhook fires for real, and `GET /api/v1/orders/mine` should show the order flip from `"pending"` to `"paid"` within a second or two.
+8. To test the failure path, use `stripe trigger payment_intent.payment_failed`, or run a real checkout with the always-declining test card `4000 0000 0000 9995` — confirm via Mongo/Postman that stock was restored and the order is `"cancelled"`.
+
 ## Running it locally
 
 **Backend**

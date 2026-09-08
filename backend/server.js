@@ -15,6 +15,7 @@ const storeRoutes = require("./routes/storeRoutes");
 const productRoutes = require("./routes/productRoutes");
 const checkoutRoutes = require("./routes/checkoutRoutes");
 const orderRoutes = require("./routes/orderRoutes");
+const webhookRoutes = require("./routes/webhookRoutes");
 
 const app = express();
 
@@ -26,6 +27,15 @@ app.use(
     credentials: true,
   })
 );
+
+// Stripe webhooks MUST be mounted with a raw body parser, and BEFORE the
+// global express.json() below — Stripe's signature verification hashes
+// the exact raw request bytes, so if express.json() parses (and Express
+// internally re-serializes) the body first, the signature check fails
+// for every request. This is the one route in the app that does NOT get
+// JSON-parsed globally.
+app.use("/api/v1/webhooks", express.raw({ type: "application/json" }), webhookRoutes);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 if (process.env.NODE_ENV !== "production") {
